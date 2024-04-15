@@ -55,11 +55,13 @@ class CapacityManager:
 
     def _init_capacities(self):
         # TODO: Optimize edge randomization to prevent collisions (regarding max_edges_count)
-        pass
-        # else:
-        # for target_node in self.prev_level:
-        #     edge = (random.choice(self.next_level), target_node)
-        #     self._increase_edge_capacity(edge, self.initial_capacity)
+        for target_node in self.prev_level:
+            edge = (random.choice(self.next_level), target_node)
+            self._increase_edge_capacity(edge, self.initial_capacity)
+
+        for source_node in self.next_level:
+            edge = (source_node, random.choice(self.prev_level))
+            self._increase_edge_capacity(edge, self.initial_capacity)
 
     def _get_random_edge(self):
         return random.choice(self.next_level), random.choice(self.prev_level)
@@ -153,7 +155,7 @@ max_capacity_per_level = [10, 20, 20]
 dag = DAG(level_size_intervals=size_intervals,
           max_edges_per_level=max_edges_per_level,
           max_capacity_per_level=max_capacity_per_level)
-# dag.plot_graph()
+dag.plot_graph()
 max_flow = dag.calculate_max_flow()
 print(max_flow)
 
