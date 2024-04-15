@@ -46,7 +46,10 @@ class EdgeManager:
         self._capacity_sum = 0
         self.initial_capacity = 1  # TODO: ?
 
-    def consume_redundant_edge(self, redundant_edges):
+    def _get_random_edge(self):
+        return random.choice(self.next_level), random.choice(self.prev_level)
+
+    def _consume_redundant_edge(self, redundant_edges):
         redundant_edge = random.choice(redundant_edges)
         redundant_edges.remove(redundant_edge)
         self.edges.remove(redundant_edge)
@@ -61,38 +64,21 @@ class EdgeManager:
 
         redundant_edges = list(filter(lambda e: e[1].in_degree > 1, self.edges))
         for node in filter(lambda n: n.out_degree == 0, self.next_level):
-            edge = (node, self.consume_redundant_edge(redundant_edges=redundant_edges)[1])
+            edge = (node, self._consume_redundant_edge(redundant_edges=redundant_edges)[1])
             self.edges.append(edge)
         redundant_edges = list(filter(lambda e: e[0].out_degree > 1, self.edges))
-        for node in filter(lambda n: n.in_degree == 0, self.next_level):
-            edge = (self.consume_redundant_edge(redundant_edges=redundant_edges)[0], node)
+        for node in filter(lambda n: n.in_degree == 0, self.prev_level):
+            edge = (self._consume_redundant_edge(redundant_edges=redundant_edges)[0], node)
             self.edges.append(edge)
 
         for edge in self.edges:
             self.graph.add_edge(edge[0].position_index, edge[1].position_index, capacity=0)
 
-    def assign_capacities(self):
-        self._init_capacities()
-        while len(self.edges) < self.max_edges_count and self._capacity_sum < self.max_capacity_sum:
-            edge = self._get_random_edge()
-            capacity = self._get_random_capacity()
-            self._increase_edge_capacity(edge, capacity)
-
-    def _init_capacities(self):
-        # TODO: Optimize edge randomization to prevent collisions (regarding max_edges_count)
-        for target_node in self.prev_level:
-            edge = (random.choice(self.next_level), target_node)
-            self._increase_edge_capacity(edge, self.initial_capacity)
-
-        for source_node in self.next_level:
-            edge = (source_node, random.choice(self.prev_level))
-            self._increase_edge_capacity(edge, self.initial_capacity)
-
-    def _get_random_edge(self):
-        return random.choice(self.next_level), random.choice(self.prev_level)
-
-    def _get_random_capacity(self):
-        return 1
+    def _sample_capacities(self, n):
+        random_numbers = [random.uniform(0, 1) for _ in range(n)]
+        initial_sum = sum(random_numbers)
+        sampled_numbers = [random_numbers[i] * self.max_capacity_sum / initial_sum for i in range(n)]
+        return sampled_numbers
 
     def _increase_edge_capacity(self, edge, capacity):
         # TODO: finish
@@ -100,6 +86,11 @@ class EdgeManager:
         nx.set_edge_attributes(self.graph, {
             (edge[0].position_index, edge[1].position_index): {'capacity': current_capacity + capacity}})
         self._capacity_sum += capacity
+
+    def assign_capacities(self):
+        capacities = self._sample_capacities(n=len(self.edges))
+        for edge, capacity in zip(self.edges, capacities):
+            self._increase_edge_capacity(edge, capacity)
 
 
 class DAG:
