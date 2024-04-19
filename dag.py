@@ -37,14 +37,13 @@ class Level:
 class EdgeManager:
     def __init__(self, graph, prev_level, next_level, max_edges_count, max_capacity_sum):
         # Edges point from next_level to prev_level
-        self.graph = graph  # TODO: Isn't is heavy to ssave the graph again and again?
+        self.graph = graph  # TODO: Isn't it heavy to save the graph again and again?
         self.prev_level = prev_level
         self.next_level = next_level
         self.max_edges_count = max_edges_count
         self.edges = []
         self.max_capacity_sum = max_capacity_sum
         self._capacity_sum = 0
-        self.initial_capacity = 1  # TODO: ?
 
     def _get_random_edge(self):
         return random.choice(self.next_level), random.choice(self.prev_level)
@@ -58,9 +57,11 @@ class EdgeManager:
     def create_edges(self):
         while len(self.edges) < self.max_edges_count:
             edge = self._get_random_edge()
-            self.edges.append(edge)
-            edge[0].out_degree += 1
-            edge[1].in_degree += 1
+            # print(edge)
+            if edge not in self.edges:  # Could it be more efficient?
+                self.edges.append(edge)
+                edge[0].out_degree += 1
+                edge[1].in_degree += 1
 
         redundant_edges = list(filter(lambda e: e[1].in_degree > 1, self.edges))
         for node in filter(lambda n: n.out_degree == 0, self.next_level):
@@ -81,7 +82,6 @@ class EdgeManager:
         return sampled_numbers
 
     def _increase_edge_capacity(self, edge, capacity):
-        # TODO: finish
         current_capacity = self.graph.get_edge_data(edge[0].position_index, edge[1].position_index)['capacity']
         nx.set_edge_attributes(self.graph, {
             (edge[0].position_index, edge[1].position_index): {'capacity': current_capacity + capacity}})
@@ -162,9 +162,9 @@ class DAG:
         plt.show()
 
 
-size_intervals = [1, 7, 4]  # (6, 8)
-max_edges_per_level = [10, 20, 20]
-max_capacity_per_level = [10, 20, 20]
+size_intervals = [1, 10, 4]  # (6, 8)
+max_edges_per_level = [10, 20]
+max_capacity_per_level = [10, 20]
 dag = DAG(level_size_intervals=size_intervals,
           max_edges_per_level=max_edges_per_level,
           max_capacity_per_level=max_capacity_per_level)
