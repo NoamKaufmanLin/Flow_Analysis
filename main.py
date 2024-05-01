@@ -2,6 +2,7 @@ import datetime
 import traceback
 import json
 import numpy as np
+from itertools import product
 
 from dag import DAG
 
@@ -31,11 +32,21 @@ class Main:
     def visualize_experiment(self, save=True):
         pass
 
-    def run(self):
-        # for batch in self.conf_manager.get_experiment_batches():
-        pass
+    def run(self, max_sizes):
+        static_capacities = (len(max_sizes) - 1) * [10]
+        size_ranges = [range(1, max_size + 1) for max_size in max_sizes]
+        for size_combination in product(*size_ranges):
+            max_edges = [size_combination[i] * size_combination[i + 1] for i in range(len(size_combination) - 1)]
+            min_edges = [max(size_combination[i], size_combination[i + 1]) for i in range(len(size_combination) - 1)]
+            edge_ranges = [range(min_edges[i], max_edges[i] + 1) for i in range(len(size_combination) - 1)]
+            for edge_combination in product(*edge_ranges):
+                print("sizes: ", size_combination)
+                print("edges: ", edge_combination)
+                print(self.calculate_max_flow(size_intervals=size_combination,
+                                              max_edges_per_level=edge_combination,
+                                              max_capacity_per_level=static_capacities))
 
 
 if __name__ == '__main__':
-    main = Main(layer_num=3)
-    main.run()
+    main = Main(layer_num=3, exp_per_state=10000)
+    main.run(max_sizes=[1, 2, 2])

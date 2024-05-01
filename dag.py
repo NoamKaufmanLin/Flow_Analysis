@@ -40,7 +40,7 @@ class EdgeManager:
         self.graph = graph  # TODO: Isn't it heavy to save the graph again and again?
         self.prev_level = prev_level
         self.next_level = next_level
-        self.max_edges_count = max_edges_count
+        self.max_edges_count = min(max_edges_count, len(self.prev_level) * len(self.next_level))
         self.edges = []
         self.max_capacity_sum = max_capacity_sum
         self._capacity_sum = 0
@@ -64,12 +64,12 @@ class EdgeManager:
                 edge[1].in_degree += 1
 
         redundant_edges = list(filter(lambda e: e[1].in_degree > 1, self.edges))
-        for node in filter(lambda n: n.out_degree == 0, self.next_level):
-            edge = (node, self._consume_redundant_edge(redundant_edges=redundant_edges)[1])
-            self.edges.append(edge)
-        redundant_edges = list(filter(lambda e: e[0].out_degree > 1, self.edges))
         for node in filter(lambda n: n.in_degree == 0, self.prev_level):
             edge = (self._consume_redundant_edge(redundant_edges=redundant_edges)[0], node)
+            self.edges.append(edge)
+        redundant_edges = list(filter(lambda e: e[0].out_degree > 1, self.edges))
+        for node in filter(lambda n: n.out_degree == 0, self.next_level):
+            edge = (node, self._consume_redundant_edge(redundant_edges=redundant_edges)[1])
             self.edges.append(edge)
 
         for edge in self.edges:
@@ -162,16 +162,17 @@ class DAG:
         plt.show()
 
 
-size_intervals = [1, 10, 4]  # (6, 8)
-max_edges_per_level = [10, 20]
-max_capacity_per_level = [10, 20]
-dag = DAG(level_size_intervals=size_intervals,
-          max_edges_per_level=max_edges_per_level,
-          max_capacity_per_level=max_capacity_per_level)
-dag.plot_graph()
-max_flow = dag.calculate_max_flow()
-print(max_flow)
+if __name__ == '__main__':
+    size_intervals = [1, 10, 4]  # (6, 8)
+    max_edges_per_level = [10, 20]
+    max_capacity_per_level = [10, 10]
+    dag = DAG(level_size_intervals=size_intervals,
+              max_edges_per_level=max_edges_per_level,
+              max_capacity_per_level=max_capacity_per_level)
+    dag.plot_graph()
+    max_flow = dag.calculate_max_flow()
+    print(max_flow)
 
-# d_{i->} > 0, d_{->j} > 0, Sum d_{i->} < Theta_{d,i}
-# Sum c_{i->} = Sum c_{->i}
-# Run experiments
+    # d_{i->} > 0, d_{->j} > 0, Sum d_{i->} < Theta_{d,i}
+    # Sum c_{i->} = Sum c_{->i}
+    # Run experiments
