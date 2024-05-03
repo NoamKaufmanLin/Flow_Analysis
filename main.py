@@ -1,8 +1,10 @@
 import datetime
 import traceback
-import json
 import numpy as np
 from itertools import product
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 from dag import DAG
 
@@ -29,10 +31,18 @@ class Main:
     def save_experiment_data(self):
         pass
 
-    def visualize_experiment(self, save=True):
-        pass
+    def visualize_experiment(self, df, var1, var2, save=True):
+        # Pivot the DataFrame to prepare for heatmap
+        heatmap_data = df.pivot_table(values='flow_avg', index=var1, columns=var2, aggfunc=np.mean)
+
+        # Generate the heatmap
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(heatmap_data, annot=False, cmap='coolwarm')  # 'annot' annotates the values
+        plt.title(f'Heatmap of Mean Results by {var1} and {var2}')
+        plt.show()
 
     def run(self, max_sizes):
+        results = []
         static_capacities = (len(max_sizes) - 1) * [10]
         size_ranges = [range(1, max_size + 1) for max_size in max_sizes]
         for size_combination in product(*size_ranges):
@@ -42,11 +52,18 @@ class Main:
             for edge_combination in product(*edge_ranges):
                 print("sizes: ", size_combination)
                 print("edges: ", edge_combination)
-                print(self.calculate_max_flow(size_intervals=size_combination,
-                                              max_edges_per_level=edge_combination,
-                                              max_capacity_per_level=static_capacities))
+                # Simulate experiment
+                exp_results = self.calculate_max_flow(size_intervals=size_combination,
+                                                      max_edges_per_level=edge_combination,
+                                                      max_capacity_per_level=static_capacities)
+                results.append(size_combination + edge_combination + exp_results)
+        columns = [f'size_{i}' for i in range(1, len(max_sizes) + 1)] + \
+                  [f'max_edges_{i}{i+1}' for i in range(1, len(max_sizes))] + ['flow_avg', 'flow_var']
+        results_df = pd.DataFrame(results, columns=columns)
+        # results_df.to_csv('experiment_results.csv', index=False)
+        self.visualize_experiment(results_df, 'size_3', 'max_edges_23')
 
 
 if __name__ == '__main__':
-    main = Main(layer_num=3, exp_per_state=10000)
-    main.run(max_sizes=[1, 2, 2])
+    main = Main(layer_num=3, exp_per_state=10)
+    main.run(max_sizes=[1, 8, 8])
