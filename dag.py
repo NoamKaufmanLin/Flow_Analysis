@@ -54,26 +54,31 @@ class EdgeManager:
         self.edges.remove(redundant_edge)
         return redundant_edge
 
-    def create_edges(self):
-        while len(self.edges) < self.max_edges_count:
-            edge = self._get_random_edge()
-            # print(edge)
-            if edge not in self.edges:  # Could it be more efficient?
+    def create_edges(self, all=False):
+        if all:
+            for next_node in self.next_level:
+                for prev_node in self.prev_level:
+                    self.edges.append((next_node, prev_node))
+        else:
+            while len(self.edges) < self.max_edges_count:
+                edge = self._get_random_edge()
+                # print(edge)
+                if edge not in self.edges:  # Could it be more efficient?
+                    self.edges.append(edge)
+                    edge[0].out_degree += 1
+                    edge[1].in_degree += 1
+
+            redundant_edges = list(filter(lambda e: e[1].in_degree > 1, self.edges))
+            for node in filter(lambda n: n.in_degree == 0, self.prev_level):
+                edge = (self._consume_redundant_edge(redundant_edges=redundant_edges)[0], node)
                 self.edges.append(edge)
-                edge[0].out_degree += 1
-                edge[1].in_degree += 1
+            redundant_edges = list(filter(lambda e: e[0].out_degree > 1, self.edges))
+            for node in filter(lambda n: n.out_degree == 0, self.next_level):
+                edge = (node, self._consume_redundant_edge(redundant_edges=redundant_edges)[1])
+                self.edges.append(edge)
 
-        redundant_edges = list(filter(lambda e: e[1].in_degree > 1, self.edges))
-        for node in filter(lambda n: n.in_degree == 0, self.prev_level):
-            edge = (self._consume_redundant_edge(redundant_edges=redundant_edges)[0], node)
-            self.edges.append(edge)
-        redundant_edges = list(filter(lambda e: e[0].out_degree > 1, self.edges))
-        for node in filter(lambda n: n.out_degree == 0, self.next_level):
-            edge = (node, self._consume_redundant_edge(redundant_edges=redundant_edges)[1])
-            self.edges.append(edge)
-
-        for edge in self.edges:
-            self.graph.add_edge(edge[0].position_index, edge[1].position_index, capacity=0)
+            for edge in self.edges:
+                self.graph.add_edge(edge[0].position_index, edge[1].position_index, capacity=0)
 
     def _sample_capacities(self, n):
         random_numbers = [random.uniform(0, 1) for _ in range(n)]

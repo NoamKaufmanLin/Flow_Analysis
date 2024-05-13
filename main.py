@@ -5,6 +5,7 @@ from itertools import product
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 from dag import DAG
 
@@ -14,11 +15,10 @@ class Main:
         self.layer_num = layer_num
         self.exp_per_state = exp_per_state
 
-    def calculate_max_flow(self, size_intervals, max_edges_per_level, max_capacity_per_level):
+    def calculate_max_flow(self, size_intervals, max_capacity_per_level):
         max_flow_list = []
         for _ in range(self.exp_per_state):
             dag = DAG(level_size_intervals=size_intervals,
-                      max_edges_per_level=max_edges_per_level,
                       max_capacity_per_level=max_capacity_per_level)
             max_flow_list.append(dag.calculate_max_flow())
         max_flow_list = np.array(max_flow_list)
@@ -46,6 +46,7 @@ class Main:
         static_capacities = (len(max_sizes) - 1) * [10]
         size_ranges = [range(1, max_size + 1) for max_size in max_sizes]
         for size_combination in product(*size_ranges):
+            # static_capacities = (len(size_combination) - 1) * [size_combination[-1]]
             max_edges = [size_combination[i] * size_combination[i + 1] for i in range(len(size_combination) - 1)]
             min_edges = [max(size_combination[i], size_combination[i + 1]) for i in range(len(size_combination) - 1)]
             edge_ranges = [range(min_edges[i], max_edges[i] + 1) for i in range(len(size_combination) - 1)]
@@ -60,10 +61,10 @@ class Main:
         columns = [f'size_{i}' for i in range(1, len(max_sizes) + 1)] + \
                   [f'max_edges_{i}{i+1}' for i in range(1, len(max_sizes))] + ['flow_avg', 'flow_var']
         results_df = pd.DataFrame(results, columns=columns)
-        # results_df.to_csv('experiment_results.csv', index=False)
+        results_df.to_csv('experiment_results.csv', index=False)
         self.visualize_experiment(results_df, 'size_3', 'max_edges_23')
 
 
 if __name__ == '__main__':
-    main = Main(layer_num=3, exp_per_state=10)
-    main.run(max_sizes=[1, 8, 8])
+    main = Main(layer_num=3, exp_per_state=100)
+    main.run(max_sizes=[1, 20, 20])
