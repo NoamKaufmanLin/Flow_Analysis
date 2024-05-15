@@ -65,6 +65,9 @@ class EdgeManager:
                 (edge[0].position_index, edge[1].position_index): {'capacity': current_capacity + capacity}})
 
 
+# class FlowInitializer:
+#     def
+
 class DAG:
     def __init__(self, level_size_intervals, max_capacity_per_level):
         self.level_size_intervals = level_size_intervals
@@ -100,14 +103,36 @@ class DAG:
         for level_size_interval in self.level_size_intervals:
             self.add_level(size=level_size_interval)
 
-    def calculate_max_flow(self, level_index=-1, flow_func=None):
-        # Set sources and sinks
-        flow_graph = self.graph.copy()
-        for node in self.levels[level_index].nodes:
+    def node_source_capacity(self, node, method):
+        source_capacity = None
+        if method == 'efficient':
+            # Each node initialized with the flow it can give
             source_capacity = sum([self.graph.get_edge_data(node.position_index, successor)['capacity']
                                    for successor in self.graph.successors(node.position_index)])
+        if method == 'node_constant':
+            # Each node initialized with flow 1
+            source_capacity = 1
+        if method == 'node_constant_normalized':
+            # Constant flow of C_n/|L_n|
+            source_capacity = self.max_capacity_per_level[-1] \
+                              / self.levels[node.level_index].size  # correct max capacity
+        return source_capacity
+
+    def calculate_max_flow(self, level_index=-1, flow_initialization='efficient', flow_func=None):
+        # Set sources and sinks
+        flow_graph = self.graph.copy()
+        level_initialization = []
+
+        for node in self.levels[level_index].nodes:
+            source_capacity = self.node_source_capacity(node=node, method=flow_initialization)
             flow_graph.add_edge(-1, node.position_index, capacity=source_capacity)
-        return nx.maximum_flow_value(flow_graph, -1, 0, capacity='capacity', flow_func=flow_func)
+            level_initialization.append(source_capacity)
+
+        # elif flow_initialization == 'binary':
+        #     pass
+        target_flow = nx.maximum_flow_value(flow_graph, -1, 0, capacity='capacity', flow_func=flow_func)
+        flow_ratio = target_flow / sum(level_initialization)
+        return level_initialization, target_flow, flow_ratio
 
     def plot_graph(self):
         plt.figure(figsize=(4, 4))
