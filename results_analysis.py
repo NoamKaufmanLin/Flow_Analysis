@@ -17,14 +17,14 @@ class Analysis:
         # Plotting the distribution of 'flow_avg'
         plt.figure(figsize=(10, 6))
         sns.histplot(data[var], bins=bins, kde=True)
-        plt.title('Distribution of Flow Average')
-        plt.xlabel('Flow Average')
+        plt.title(f'Distribution of {var}')
+        plt.xlabel(f'{var}')
         plt.ylabel('Frequency')
         plt.grid(True)
         plt.show()
 
         # Summary statistics of 'flow_avg'
-        print(data['flow_avg'].describe())
+        print(data[var].describe())
 
     @staticmethod
     def scatterplot(data, vars, target_var, save=True):
@@ -56,7 +56,7 @@ class Analysis:
 
 if __name__ == '__main__':
     # Load the data from the uploaded CSV file
-    data_path = "experiment_results_new.csv"
+    data_path = "tryout.csv"
     data = pd.read_csv(data_path)
 
     # Display the first few rows of the dataframe to understand its structure

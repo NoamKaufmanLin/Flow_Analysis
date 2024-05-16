@@ -65,9 +65,6 @@ class EdgeManager:
                 (edge[0].position_index, edge[1].position_index): {'capacity': current_capacity + capacity}})
 
 
-# class FlowInitializer:
-#     def
-
 class DAG:
     def __init__(self, level_size_intervals, max_capacity_per_level):
         self.level_size_intervals = level_size_intervals
@@ -118,18 +115,28 @@ class DAG:
                               / self.levels[node.level_index].size  # correct max capacity
         return source_capacity
 
-    def calculate_max_flow(self, level_index=-1, flow_initialization='efficient', flow_func=None):
+    @staticmethod
+    def flow_initialization_factor(method):
+        if method == 'normal':
+            return 1
+        if method == 'binary':
+            return random.randint(0, 1)
+        if method == 'uniform':
+            return random.uniform(0, 1)
+
+    def calculate_max_flow(self, level_index=-1, initialization_method='efficient', initialization_factor='normal',
+                           flow_func=None):
         # Set sources and sinks
         flow_graph = self.graph.copy()
         level_initialization = []
 
         for node in self.levels[level_index].nodes:
-            source_capacity = self.node_source_capacity(node=node, method=flow_initialization)
-            flow_graph.add_edge(-1, node.position_index, capacity=source_capacity)
-            level_initialization.append(source_capacity)
+            node_capacity = self.node_source_capacity(node=node, method=initialization_method)
+            node_factor = self.flow_initialization_factor(method=initialization_factor)
+            node_initialization = node_capacity * node_factor
+            flow_graph.add_edge(-1, node.position_index, capacity=node_initialization)
+            level_initialization.append(node_initialization)
 
-        # elif flow_initialization == 'binary':
-        #     pass
         target_flow = nx.maximum_flow_value(flow_graph, -1, 0, capacity='capacity', flow_func=flow_func)
         flow_ratio = target_flow / sum(level_initialization)
         return level_initialization, target_flow, flow_ratio
