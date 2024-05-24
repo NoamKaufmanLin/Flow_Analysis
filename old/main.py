@@ -1,49 +1,14 @@
-from collections import OrderedDict
-import os
-import numpy as np
-import matplotlib.pyplot as plt
-import networkx as nx
-import random
-import numpy as np
 import datetime
 import traceback
+import numpy as np
 from itertools import product
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
+from dag import DAG
 
-def level_up(source_level, C):
-    target_level = np.zeros((C.shape[0], source_level.shape[1]))
-    for i in range(C.shape[0]):
-        for j in range(C.shape[1]):
-            # print(sum(C[:, j]))
-            normalization = C[i, j] / max(sum(C[:, j]), sum(source_level[j]))  # sum(C[:, j]) * sum(source_level[j])
-            target_level[i] += normalization * source_level[j]
-    return target_level
-
-
-def random_c_matrix(source_level_size, target_level_size, capacity):
-    C = np.random.rand(target_level_size, source_level_size)
-    C = capacity / (np.sum(C)) * C
-    return C
-
-
-t1 = np.array([[0, 1], [1, 0]])
-# C1 = np.array([[0.4, 0.4], [0.1, 0.3], [0.6, 0.2]])
-C1 = random_c_matrix(source_level_size=t1.shape[0], target_level_size=3, capacity=2)
-t2 = level_up(source_level=t1, C=C1)
-print(t2)
-C2 = random_c_matrix(source_level_size=t2.shape[0], target_level_size=2, capacity=2)
-t3 = level_up(source_level=t2, C=C2)
-print(t3)
-C3 = random_c_matrix(source_level_size=t3.shape[0], target_level_size=1, capacity=2)
-t4 = level_up(source_level=t3, C=C3)
-print(t4)
-
-
-# print(np.sum(t4, axis=0))
 
 class Main:
     def __init__(self, exp_per_state=10):
@@ -95,3 +60,6 @@ if __name__ == '__main__':
     static_capacities = [10, 10]
     initialization_method = 'node_constant_normalized'  # efficient, node_constant, node_constant_normalized
     initialization_factor = 'normal'  # normal, binary, uniform
+
+    main.run(run_name=run_name, max_sizes=max_sizes, static_capacities=static_capacities,
+             initialization_method=initialization_method, initialization_factor=initialization_factor)
