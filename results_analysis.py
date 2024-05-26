@@ -7,8 +7,6 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from dag import DAG
-
 
 class Analysis:
 
