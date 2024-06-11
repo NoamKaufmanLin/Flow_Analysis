@@ -35,11 +35,16 @@ class Main:
     @staticmethod
     def base_initialization(base_layer_size, capacity, method='constant'):
         base = np.eye(base_layer_size) * (capacity / base_layer_size)
-        # if method == 'constant':
-        #     pass
+        if method == 'constant':
+            return base
+        elif method == 'binary':
+            return np.random.randint(2, size=base_layer_size) * base
+        elif method == 'uniform':
+            return np.random.rand(base_layer_size) * base
         return base
 
     def simulate_flow(self, layer_sizes, capacity, initialization_method='constant'):
+        # doesn't support non-constant initialization
         current_level = self.base_initialization(base_layer_size=layer_sizes[-1], capacity=capacity,
                                                  method=initialization_method)
         for layer_size in layer_sizes[:0:-1]:
@@ -84,9 +89,11 @@ class Main:
 if __name__ == '__main__':
     main = Main(exp_per_state=100)
 
-    run_name = 'tryout'
-    max_sizes = [1, 20, 20]
-    initialization_method = 'constant'
+    run_name = '40_40_binary100'
+    max_sizes = [1, 40, 40]
+    # run_name = '10_10_10_constant100'
+    # max_sizes = [1, 10, 10, 10]
+    initialization_method = 'binary'
     main.run(run_name=run_name, max_sizes=max_sizes, initialization_method=initialization_method)
 
     # t1 = np.array([[0, 1], [1, 0]]) * 0.3
