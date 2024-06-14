@@ -1,113 +1,86 @@
-import networkx as nx
-import numpy as np
+from uuid import uuid4
 import pulp
-import datetime
-import traceback
-from itertools import product
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-from tqdm import tqdm
-from graph_elements import Node, DirectedEdge, Commodity
+from graph_elements import DAG
 
 
-class DAG:
-    def __init__(self, level_sizes):
-        self.level_sizes = level_sizes
-        self.node_levels = []
-        self.edge_levels = []
-        self.node_count = 0
-
-        self.graph = nx.DiGraph()
-        self.add_levels()
-        self.add_edges()
-
-    def add_edges(self):
-        for index in range(1, len(self.level_sizes)):
-            level_edges = {}
-            source_level = self.node_levels[index].values()
-            target_level = self.node_levels[index - 1].values()
-
-            for source_node in source_level:
-                for target_node in target_level:
-                    edge = DirectedEdge(source_node=source_node.position_index, target_node=target_node.position_index)
-                    self.graph.add_edge(source_node.position_index, target_node.position_index, uuid=edge.uuid)
-                    level_edges[edge.uuid] = edge
-            self.edge_levels.append(level_edges)
-
-    def add_level(self, size, level_index):
-        level_nodes = {}
-        for i in range(size):
-            node = Node(level_index=level_index, node_index=i, position_index=i + self.node_count)
-            self.graph.add_node(node.position_index, level_index=node.level_index,
-                                node_index=node.node_index, uuid=node.uuid)
-            level_nodes[node.uuid] = node
-        self.node_count += size
-        self.node_levels.append(level_nodes)
-
-    def add_levels(self):
-        for i, level_size in enumerate(self.level_sizes):
-            self.add_level(size=level_size, level_index=i)
-
-    def init_capacities(self):
-        for level in self.edge_levels:
-            level_edges = list(level.values())
-            C = np.random.rand(len(level_edges))
-            C = 1 / (np.sum(C)) * C
-            for edge, capacity in zip(level_edges, C):
-                edge.capacity = capacity
-
-        for edge in self.graph.edges:
-            edge_uuid = self.graph.get_edge_data(*edge)['uuid']
-            match = list(filter(lambda l: edge_uuid in l, self.edge_levels))[0][edge_uuid]
-            edge_cap = match.capacity
-            self.graph[edge[0]][edge[1]]['capacity'] = edge_cap
-
-    def plot_graph(self):
-        plt.figure(figsize=(4, 4))
-        # pos = nx.spring_layout(self.graph)  # positions for all nodes
-
-        level_indexes = nx.get_node_attributes(self.graph, 'level_index')
-        node_indexes = nx.get_node_attributes(self.graph, 'node_index')
-        node_labels = {}
-        for i in range(self.node_count):
-            node_labels[i] = (level_indexes[i], node_indexes[i])
-        pos = {node: node_labels[i] for i, node in enumerate(self.graph.nodes())}
-
-        # nx.draw(self.graph, pos=pos, with_labels=True, node_size=600)
-        nx.draw_networkx_nodes(self.graph, pos, node_size=600)
-        nx.draw_networkx_edges(self.graph, pos, edgelist=self.graph.edges(), arrowstyle='->', arrowsize=20)
-        nx.draw_networkx_labels(self.graph, pos, labels=node_labels, font_size=10, font_family="sans-serif")
-
-        edge_labels = nx.get_edge_attributes(self.graph, 'capacity')
-        edge_labels = {edge: f"{cap:.2f}" for edge, cap in edge_labels.items()}
-        nx.draw_networkx_edge_labels(self.graph, pos, edge_labels=edge_labels, label_pos=0.2, font_size=8)
-
-        plt.axis('off')
-        plt.show()
+class Commodity:
+    def __init__(self, source_node, target_node, demand):
+        self.uuid = str(uuid4())
+        self.source_node = source_node
+        self.target_node = target_node
+        self.demand = demand
 
 
 class MultiCommodityLP:
-    def __init__(self, graph):
+    def __init__(self, graph, commodities):
         self.prob = pulp.LpProblem("MaxMultiCommodityFlow", pulp.LpMaximize)
         self.graph = graph
-        self.c = {}  # capacity
-        self.f = {}  # Flow fraction
+        self.commodities = commodities
+        self.f = self.create_flow_variables()  # Flow fraction
+        self.create_constraints()
 
-    def create_variables(self):
-        pass
+    def node_flow(self, node, commodity_uuid):
+        incoming_flow = pulp.lpSum(self.f[(commodity_uuid, self.graph.get_edge_data(v, node)['uuid'])]
+                                   for v in self.graph.predecessors(node))
+        outgoing_flow = pulp.lpSum(self.f[(commodity_uuid, self.graph.get_edge_data(node, v)['uuid'])]
+                                   for v in self.graph.successors(node))
+        return outgoing_flow - incoming_flow
+
+    def create_flow_variables(self):
+        f = {}
+        for edge in self.graph.edges():
+            for commodity in range(len(self.commodities)):
+                f[(commodity.uuid, edge.uuid)] = pulp.LpVariable(f"f_{commodity.uuid}_{edge.uuid}",
+                                                                 lowBound=0, upBound=1)
+        return f
 
     def create_constraints(self):
         # Link capacity constraints
-        # Flow conservation on transit nodes
-        # Flow conservation (total)
-        pass
+        for edge in self.graph.edges():
+            self.prob += (pulp.lpSum(self.f[(commodity.uuid, edge.uuid)] * commodity.demand for commodity in
+                                     self.commodities) <= edge.capacity,
+                          f"LinkCapacity_{edge.uuid}")
 
-    def create_objective(self):
-        # Objective function: maximize total throughput
-        pass
+        # Flow conservation on transit nodes
+        for commodity in self.commodities:
+            for node in self.graph.nodes():
+                if node != commodity.source_node and node != commodity.target_node:
+                    self.prob += (self.node_flow(node=node, commodity_uuid=commodity.uuid) == 0,
+                                  f"FlowConservation_{commodity.uuid}_{node.uuid}")
+
+        # Source and target nodes
+        for commodity in self.commodities:
+            source_flow = self.node_flow(node=commodity.source_node, commodity_uuid=commodity.uuid)
+            target_flow = self.node_flow(node=commodity.target_node, commodity_uuid=commodity.uuid)
+
+            # Total flow conservation constraint
+            self.prob += (source_flow == - target_flow, f"FlowConservation_{commodity.uuid}")
+            # Source flow constraint
+            self.prob += (source_flow <= 1, f"SourceFlow_{commodity.uuid}")
+
+    def create_objective(self, method="TotalThroughput"):
+        if method == "TotalThroughput":
+            self.prob += pulp.lpSum(self.node_flow(node=commodity.source_node, commodity_uuid=commodity.uuid)
+                                    for commodity in self.commodities), "TotalThroughput"
+
+        elif method == "MaxMinThroughput":
+            min_throughput = pulp.LpVariable("min_throughput", lowBound=0)
+            for commodity in self.commodities:
+                source_flow = self.node_flow(node=commodity.source_node, commodity_uuid=commodity.uuid)
+                self.prob += (min_throughput <= source_flow, f"MinThroughputConstraint_{commodity.uuid}")
+            self.prob += min_throughput, "MaxMinThroughput"
 
     def solve_problem(self):
+        self.prob.solve()
+
+    def extract_results(self):
+        # result = {}
+        # for (i, (_, _, _)) in enumerate(commodities):
+        #     result[i] = {}
+        #     for (u, v, _) in edges:
+        #         result[i][(u, v)] = f[(i, u, v)].varValue
+        #
+        # return result
         pass
 
 
@@ -188,20 +161,12 @@ def max_multi_commodity_flow(num_nodes, edges, commodities):
     return result
 
 
-# Example usage
-# num_nodes = 4
-# edges_variables = [(1, 0, 1), (2, 0, 1), (3, 1, 1), (3, 2, 1)]
-# edges = [DirectedEdge(source_node=edge[0], target_node=edge[1], capacity=edge[2]) for edge in edges_variables]
-# commodities_variables = [(3, 0, 1), (3, 0, 1), (3, 0, 1)]  #
-# commodities = [Commodity(source_node=com[0], target_node=com[1], demand=com[2]) for com in commodities_variables]
-#
-# result = max_multi_commodity_flow(num_nodes, edges, commodities)
-# for k, v in result.items():
-#     print(f"Commodity {k}:")
-#     for edge, flow in v.items():
-#         print(f"  Edge {edge}: Flow {flow}")
-
 if __name__ == '__main__':
     dag = DAG(level_sizes=[1, 2, 2])
     dag.init_capacities()
-    dag.plot_graph()
+    # dag.plot_graph()
+    # c1 = Commodity(source_node=com[0], target_node=com[1], demand=com[2])  # [(4, 0, 1), (5, 0, 1)]
+    # commodities = [c1, c2]
+    #
+    # mclp = MultiCommodityLP(graph=dag.graph, commodities=commodities)
+    print()
