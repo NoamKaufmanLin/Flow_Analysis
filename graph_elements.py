@@ -6,12 +6,9 @@ from matplotlib import pyplot as plt
 
 class Node:
     def __init__(self, level_index, node_index, position_index):
-        self.uuid = str(uuid4())
         self.level_index = level_index
         self.node_index = node_index  # index in level
         self.position_index = position_index  # global index in DiGraph
-        self.in_degree = 0  # Non-zero capacity edges
-        self.out_degree = 0  # Non-zero capacity edges
 
     def __str__(self):
         return f'{self.level_index},{self.node_index}'
@@ -22,7 +19,7 @@ class DirectedEdge:
         self.uuid = str(uuid4())
         self.source_node = source_node
         self.target_node = target_node
-        self.capacity = None
+        self.capacity = capacity
 
 
 class DAG:
@@ -45,17 +42,16 @@ class DAG:
             for source_node in source_level:
                 for target_node in target_level:
                     edge = DirectedEdge(source_node=source_node.position_index, target_node=target_node.position_index)
-                    self.graph.add_edge(source_node.position_index, target_node.position_index, uuid=edge.uuid)
-                    level_edges[edge.uuid] = edge
+                    self.graph.add_edge(source_node.position_index, target_node.position_index)  # , uuid=edge.uuid
+                    level_edges[(source_node.position_index, target_node.position_index)] = edge
             self.edge_levels.append(level_edges)
 
     def add_level(self, size, level_index):
         level_nodes = {}
         for i in range(size):
             node = Node(level_index=level_index, node_index=i, position_index=i + self.node_count)
-            self.graph.add_node(node.position_index, level_index=node.level_index,
-                                node_index=node.node_index, uuid=node.uuid)
-            level_nodes[node.uuid] = node
+            self.graph.add_node(node.position_index, level_index=node.level_index, node_index=node.node_index)
+            level_nodes[node.position_index] = node
         self.node_count += size
         self.node_levels.append(level_nodes)
 
@@ -65,18 +61,14 @@ class DAG:
 
     def init_capacities(self):
         # TODO: Expand methods
+        total_capacity = self.level_sizes[-1]  # 1
         for level in self.edge_levels:
             level_edges = list(level.values())
             C = np.random.rand(len(level_edges))
-            C = 1 / (np.sum(C)) * C
+            C = total_capacity / (np.sum(C)) * C
             for edge, capacity in zip(level_edges, C):
                 edge.capacity = capacity
-
-        for edge in self.graph.edges:
-            edge_uuid = self.graph.get_edge_data(*edge)['uuid']
-            match = list(filter(lambda l: edge_uuid in l, self.edge_levels))[0][edge_uuid]
-            edge_cap = match.capacity
-            self.graph[edge[0]][edge[1]]['capacity'] = edge_cap
+                self.graph[edge.source_node][edge.target_node]['capacity'] = capacity
 
     def plot_graph(self):
         plt.figure(figsize=(4, 4))
@@ -100,3 +92,9 @@ class DAG:
 
         plt.axis('off')
         plt.show()
+
+
+if __name__ == '__main__':
+    dag = DAG(level_sizes=[1, 2, 2])
+    dag.init_capacities()
+    dag.plot_graph()
